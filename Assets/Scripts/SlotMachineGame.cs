@@ -94,7 +94,7 @@ public sealed class SlotMachineGame : MonoBehaviour
         CreateButton(canvas.transform, "Add Credits", "+500", new Vector2(245f, -310f),
             new Vector2(120f, 54f), new Color(0.16f, 0.44f, 0.33f), AddCredits);
 
-        CreateText(canvas.transform, "Payout Guide", "CHERRY 3X     LEMON 2X     BELL 5X     7 10X",
+        CreateText(canvas.transform, "Payout Guide", "CHERRY 3X     LEMON 2X     BAR 5X     7 10X",
             16, new Vector2(0f, -354f), new Vector2(700f, 28f), new Color(0.86f, 0.83f, 1f));
     }
 
@@ -209,11 +209,7 @@ public sealed class SlotMachineGame : MonoBehaviour
         _spinButtonText.text = "SPINNING";
         _winText.text = "WIN  0";
 
-        int[] outcome = new int[_reels.Length];
-        for (int i = 0; i < outcome.Length; i++)
-        {
-            outcome[i] = _random.Next(_symbolSprites.Length);
-        }
+        int[] outcome = SlotMachineRules.CreateOutcome(_random);
 
         SetStatus("GOOD LUCK!");
         RefreshLabels();
@@ -232,13 +228,12 @@ public sealed class SlotMachineGame : MonoBehaviour
             yield return null;
         }
 
-        if (outcome[0] == outcome[1] && outcome[1] == outcome[2])
+        int winnings = SlotMachineRules.GetWinnings(outcome, bet);
+        if (winnings > 0)
         {
-            int multiplier = GetPayoutMultiplier(outcome[0]);
-            int winnings = bet * multiplier;
             _balance += winnings;
             _winText.text = "WIN  " + winnings;
-            SetStatus(multiplier == 10 ? "JACKPOT!  10X PAYOUT!" : "THREE OF A KIND!  " + multiplier + "X PAYOUT");
+            SetStatus(outcome[0] == 3 ? "JACKPOT!  10X PAYOUT!" : "THREE OF A KIND!  " + winnings / bet + "X PAYOUT");
         }
         else
         {
@@ -249,18 +244,6 @@ public sealed class SlotMachineGame : MonoBehaviour
         _spinButton.interactable = true;
         _spinButtonText.text = "SPIN";
         RefreshLabels();
-    }
-
-    private int GetPayoutMultiplier(int symbolIndex)
-    {
-        switch (symbolIndex)
-        {
-            case 0: return 3;
-            case 1: return 2;
-            case 2: return 5;
-            case 3: return 10;
-            default: throw new ArgumentOutOfRangeException("symbolIndex");
-        }
     }
 
     private void ChangeBetDown()

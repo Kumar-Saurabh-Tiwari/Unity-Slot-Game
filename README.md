@@ -29,7 +29,7 @@ To create one in Unity:
 | --- | ---: |
 | Cherries | 3x bet |
 | Lemons | 2x bet |
-| Bells | 5x bet |
+| BAR | 5x bet |
 | Sevens | 10x bet |
 
 Each reel result is drawn independently from the four-symbol set using `System.Random`. Only three identical symbols win; a 7-7-7 result is the jackpot.
@@ -40,6 +40,7 @@ Each reel result is drawn independently from the four-symbol set using `System.R
 - `SlotMachineGame` owns the UI, credit/bet state, spin flow, win rule, and payout table. `SlotReel` owns the clipped reel presentation, symbol cycling, staggered spin, and eased stop.
 - Reel motion uses frame-time-based movement, per-reel start delays, and a short smooth settling animation. No animation package or external runtime dependency is needed.
 - The UI is built at runtime in code so the provided art can be positioned consistently on different display sizes.
+- The game uses the same engine-independent `SlotMachineRules` for random outcomes, win detection, and payouts; its PowerShell test suite is in `Tests/`.
 
 ```text
 Assets/
@@ -52,7 +53,12 @@ Assets/
   UI/               Runtime-generated Unity UI.
 ProjectSettings/
 Packages/
+Tests/              Runnable core-rule tests (Windows PowerShell).
 ```
+
+## Run core-rule tests
+
+On Windows, run `powershell -NoProfile -ExecutionPolicy Bypass -File Tests\Run-SlotMachineRules.Tests.ps1`. These tests compile and exercise the exact C# rules class used by the game, including each payout, losing combinations, invalid inputs, and a seeded RNG distribution check. They do not execute Unity's rendering, input, or reel animation; play-testing those still requires the Unity editor.
 
 ## GitHub submission
 
