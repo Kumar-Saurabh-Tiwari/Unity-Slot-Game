@@ -30,11 +30,17 @@ function Assert-Throws {
         & $Action
     }
     catch {
-        if ($ExceptionType.IsInstanceOfType($_.Exception)) {
+        $caughtException = $_.Exception
+        while ($caughtException -is [System.Management.Automation.MethodInvocationException] -and
+            $null -ne $caughtException.InnerException) {
+            $caughtException = $caughtException.InnerException
+        }
+
+        if ($ExceptionType.IsInstanceOfType($caughtException)) {
             return
         }
 
-        throw "$Message Expected $($ExceptionType.FullName), received $($_.Exception.GetType().FullName)."
+        throw "$Message Expected $($ExceptionType.FullName), received $($caughtException.GetType().FullName)."
     }
 
     throw "$Message Expected $($ExceptionType.FullName), but no exception was thrown."
@@ -80,14 +86,19 @@ Assert-Throws { [SlotMachineRules]::GetWinnings([int[]]@(0, 1, 4), 5) } ([Argume
 Assert-Throws { [SlotMachineRules]::GetWinnings([int[]]@(0, 0, 0), 0) } ([ArgumentOutOfRangeException]) 'A zero bet must be rejected.'
 Assert-Throws { [SlotMachineRules]::CreateOutcome($null) } ([ArgumentNullException]) 'A null random generator must be rejected.'
 
-$random = New-Object System.Random(20261119)
-$symbolCounts = New-Object 'int[]' ([SlotMachineRules]::SymbolCount)
-$distinctOutcomes = New-Object 'System.Collections.Generic.HashSet[string]'
+$random = [System.Random]::new(20261119)
+$symbolCounts = [int[]]::new([SlotMachineRules]::SymbolCount)
+$distinctOutcomes = [System.Collections.Generic.HashSet[string]]::new()
 $sampleCount = 40000
+$matchingOutcomes = 0
 for ($spin = 0; $spin -lt $sampleCount; $spin++) {
     $outcome = [SlotMachineRules]::CreateOutcome($random)
-    Assert-Equal [SlotMachineRules]::ReelCount $outcome.Length 'Every random outcome must contain three symbols.'
+    Assert-Equal ([SlotMachineRules]::ReelCount) $outcome.Length 'Every random outcome must contain three symbols.'
     $distinctOutcomes.Add(($outcome -join '-')) | Out-Null
+    if ([SlotMachineRules]::IsWinningCombination($outcome)) {
+        $matchingOutcomes++
+    }
+
     foreach ($symbol in $outcome) {
         if ($symbol -lt 0 -or $symbol -ge [SlotMachineRules]::SymbolCount) {
             throw "Random outcome contained an invalid symbol index: $symbol."
@@ -97,6 +108,8 @@ for ($spin = 0; $spin -lt $sampleCount; $spin++) {
 }
 
 Assert-Equal $true ($distinctOutcomes.Count -gt 20) 'Random spins must not repeat a single outcome.'
+$expectedMatches = $sampleCount / [math]::Pow([SlotMachineRules]::SymbolCount, [SlotMachineRules]::ReelCount - 1)
+Assert-Equal $true ($matchingOutcomes -gt ($expectedMatches * 0.8) -and $matchingOutcomes -lt ($expectedMatches * 1.2)) 'The three independent reels must produce matches at the expected rate.'
 $expectedCount = ($sampleCount * [SlotMachineRules]::ReelCount) / [SlotMachineRules]::SymbolCount
 $chiSquare = 0.0
 foreach ($count in $symbolCounts) {
@@ -105,4 +118,4 @@ foreach ($count in $symbolCounts) {
 }
 Assert-Equal $true ($chiSquare -lt 30.0) 'Symbol outcomes must be approximately uniform in the seeded RNG sample.'
 
-Write-Output "PASS: $script:assertionCount assertions. All 64 outcomes, payouts, invalid inputs, and 120,000 seeded symbol draws checked."
+Write-Output "PASS: $script:assertionCount assertions. All 64 outcomes, payouts, invalid inputs, and $($sampleCount * [SlotMachineRules]::ReelCount) seeded symbol draws checked."
